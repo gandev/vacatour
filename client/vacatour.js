@@ -1,10 +1,22 @@
-Template.map.helpers({});
-Template.map.events({});
+Template.tour.rendered = function() {
+  //TODO necessary to prevent from rerendering?
+  this.map = new TourMap(this.data);
+};
 
-Tracker.autorun(function() {
-  var tour = Vacatour.findOne('test1');
+Template.tour.helpers({});
+Template.tour.events({});
 
-  if (tour && !GoogleMaps._maps[tour._id]) {
-    GoogleMaps.add('map-canvas', tour);
+UI.body.helpers({
+  currentTour: function() {
+    return Tours.findOne();
+  }
+});
+
+UI.body.events({
+  'click #create-new-tour': function() {
+    Tours.insert({
+      points: [],
+      routes: []
+    });
   }
 });

@@ -1,13 +1,40 @@
 <head>
   <title>vacatour</title>
-
-  <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?v=3.9"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?v=3.17&libraries=places"></script>
 </head>
 
 <body>
-  {{> map}}
+  <div class="container-fluid">
+    <div class="row">
+      <nav class="navbar navbar-default" role="navigation">
+        <div class="navbar-header">
+          <a class="navbar-brand">vacatour - plan your round trip vacation</a>
+        </div>
+      </nav>
+    </div>
+
+    {{#with currentTour}}
+      {{> tour}}
+    {{else}}
+      <button id="create-new-tour" class="btn btn-success">add new tour</button>
+    {{/with}}
+  </div>
 </body>
 
-<template name="map">
-  <div id="map-canvas" style="height: 600px;"></div>
+<template name="tour">
+  <div class="row">
+    <div class="col-xs-10 col-sm-10 col-md-10 col-lg-10">
+      <div id="map-canvas-{{this._id}}" style="height: 600px;"></div>
+      <input id="places-search-{{this._id}}" class="map-controls places-search-input" type="text" placeholder="Search place...">
+    </div>
+
+    <div class="col-xs-2 col-sm-2 col-md-2 col-lg-2">
+      <ul class="list-group">
+        {{#each this.points}}
+          <li class="list-group-item">{{name}}</li>
+        {{/each}}
+      </ul>
+    </div>
+  </div>
 </template>
