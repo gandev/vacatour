@@ -8,4 +8,5 @@ autopublish
 insecure
 reactive-var
 ian:bootstrap-3
+gandev:server-eval
 
