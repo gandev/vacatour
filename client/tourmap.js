@@ -174,6 +174,11 @@ TourMap.prototype.renderRoute = function(pointFrom) {
   var placeTo = pointTo && self.places[pointTo.placeId];
 
   if (placeFrom && placeTo) {
+    if (self.connections[route._id]) {
+      //necessary because sometimes line wasn't cleared
+      self.connections[route._id].setMap(null);
+    }
+
     self.connections[route._id] = new google.maps.Polyline({
       map: self.map,
       path: new google.maps.MVCArray([placeFrom.geometry.location, placeTo.geometry.location])

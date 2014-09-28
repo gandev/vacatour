@@ -13,12 +13,12 @@ Meteor.methods({
       }
     });
   },
-  'vacatour/removeTourpoint': function(tourpoint, previousRouteId, nextPointId) {
-    check(tourpoint, Object);
+  'vacatour/removeTourpoint': function(point, previousRouteId, nextPointId) {
+    check(point, Object);
     check(previousRouteId, Match.OneOf(String, undefined, null));
     check(nextPointId, Match.OneOf(String, undefined, null));
 
-    var tourId = tourpoint.tourId;
+    var tourId = point.tourId;
     var tour = Tours.findOne(tourId); //needs to be fetched before pull of points
 
     if (!tour) return;
@@ -26,7 +26,7 @@ Meteor.methods({
     Tours.update(tourId, {
       '$pull': {
         'points': {
-          _id: tourpoint._id
+          _id: point._id
         }
       }
     });
@@ -34,13 +34,13 @@ Meteor.methods({
     Tours.update(tourId, {
       '$pull': {
         'routes': {
-          _id: tourpoint.routeFromHere || previousRouteId
+          _id: point.routeFromHere || previousRouteId
         }
       }
     });
 
     if (nextPointId) {
-      for (var nr = tourpoint.number + 1; nr < tour.points.length; nr++) {
+      for (var nr = point.number + 1; nr < tour.points.length; nr++) {
         Tours.update({
           _id: tourId,
           'points.number': nr
@@ -63,12 +63,16 @@ Meteor.methods({
       }
     }
   },
-  'vacatour/switchTourpoints': function(pointOne, pointTwo) {
+  'vacatour/switchTourpoints': function(pointOne, pointTwo, previousPoint) {
     check(pointOne, Object);
     check(pointTwo, Object);
+    check(previousPoint, Match.OneOf(previousPoint, null, undefined));
+
+    var tourId = pointOne.tourId;
+    var tour = Tours.findOne(tourId);
 
     Tours.update({
-      _id: pointOne.tourId,
+      _id: tourId,
       'points._id': pointOne._id
     }, {
       '$set': {
@@ -77,7 +81,7 @@ Meteor.methods({
     });
 
     Tours.update({
-      _id: pointTwo.tourId,
+      _id: tourId,
       'points._id': pointTwo._id
     }, {
       '$set': {
@@ -85,6 +89,61 @@ Meteor.methods({
       }
     });
 
-    //TODO switch route
+    if (previousPoint) {
+      var routePrevious = _.find(tour.routes, function(route) {
+        return route._id === previousPoint.routeFromHere;
+      });
+
+      Tours.update({
+        _id: tourId,
+        'routes._id': previousPoint.routeFromHere
+      }, {
+        '$set': {
+          'routes.$.to': pointTwo._id
+        }
+      });
+    }
+
+    var routeTwo = _.find(tour.routes, function(route) {
+      return route._id === pointTwo.routeFromHere;
+    });
+
+    Tours.update({
+      _id: tourId,
+      'routes._id': pointOne.routeFromHere
+    }, {
+      '$set': {
+        'routes.$.to': routeTwo && routeTwo.to
+      }
+    });
+
+    Tours.update({
+      _id: tourId,
+      'routes._id': pointTwo.routeFromHere || pointOne.routeFromHere
+    }, {
+      '$set': {
+        'routes.$.to': pointOne._id
+      }
+    });
+
+    if (!pointTwo.routeFromHere) {
+      Tours.update({
+        _id: tourId,
+        'points._id': pointTwo._id
+      }, {
+        '$set': {
+          'points.$.routeFromHere': pointOne.routeFromHere
+        }
+      });
+
+      Tours.update({
+        _id: tourId,
+        'points._id': pointOne._id
+      }, {
+        '$set': {
+          'points.$.routeFromHere': null
+        }
+      });
+    }
   }
 });

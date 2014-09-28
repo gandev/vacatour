@@ -69,12 +69,22 @@ Template.tour.events({
       number: this.number - 1
     });
 
+    var previousPreviousPoint = Points.findOne({
+      tourId: tour._id,
+      number: this.number - 2
+    });
+
     if (previousPoint) {
-      Meteor.call('vacatour/switchTourpoints', this, previousPoint);
+      Meteor.call('vacatour/switchTourpoints', previousPoint, this, previousPreviousPoint);
     }
   },
   'click .move-tourpoint-down': function() {
     var tour = Template.parentData();
+
+    var previousPoint = Points.findOne({
+      tourId: tour._id,
+      number: this.number - 1
+    });
 
     var nextPoint = Points.findOne({
       tourId: tour._id,
@@ -82,7 +92,7 @@ Template.tour.events({
     });
 
     if (nextPoint) {
-      Meteor.call('vacatour/switchTourpoints', this, nextPoint);
+      Meteor.call('vacatour/switchTourpoints', this, nextPoint, previousPoint);
     }
   }
 });
