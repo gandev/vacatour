@@ -164,7 +164,10 @@ TourMap.prototype.renderTour = function(tour) {
 TourMap.prototype.renderRoute = function(pointFrom) {
   var self = this;
 
-  var route = Routes.findOne(pointFrom.routeFromHere);
+  var route = Routes.findOne({
+    tourId: self.tour._id,
+    from: pointFrom._id
+  });
 
   if (!route) return;
 
@@ -209,14 +212,15 @@ TourMap.prototype.createTourpoint = function(place) {
     address: place.formatted_address
   };
 
-  var newRoute = {
-    _id: Random.id(),
-    tourId: tourId,
-    to: newPoint._id,
-    transport: 'CAR'
-  };
-
   if (previousPoint) {
+    var newRoute = {
+      _id: Random.id(),
+      tourId: tourId,
+      from: previousPoint._id,
+      to: newPoint._id,
+      transport: 'CAR'
+    };
+
     Tours.update(tourId, {
       '$push': {
         points: newPoint,
@@ -229,10 +233,5 @@ TourMap.prototype.createTourpoint = function(place) {
         points: newPoint
       }
     });
-  }
-
-  if (previousPoint) {
-    //TODO use a tour startpoint of sorts if no previousPoint
-    Meteor.call('vacatour/addRouteToPoint', tourId, previousPoint._id, newRoute._id);
   }
 };
