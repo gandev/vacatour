@@ -32,19 +32,29 @@
 
     <div class="col-xs-12 col-sm-5 col-md-4 col-lg-4">
       <ul class="list-group">
-        {{#each pointsAndRoutes}}
-          <li class="list-group-item">
-            <div class="btn-group">
-              <button type="button" class="btn btn-xs btn-default move-tourpoint-up"><span class="glyphicon glyphicon-chevron-up"></span></button>
-              <button type="button" class="btn btn-xs btn-default move-tourpoint-down"><span class="glyphicon glyphicon-chevron-down"></span></button>
-              <button type="button" class="btn btn-xs btn-default remove-tourpoint"><span class="glyphicon glyphicon-remove"></span></button>
-            </div> {{this.name}} <br> {{this.address}}
-          </li>
-          {{#if route}}
-            <li class="list-group-item">
-              <button type="button" class="btn btn-xs btn-default"><span class="glyphicon glyphicon-search"></span></button> BY: {{route.transport}}</li>
-          {{/if}}
+        {{#each tourPoints}}
+          {{#with routeTo}}
+            {{> route}}
+          {{/with}}
+
+          {{> tourpoint}}
         {{/each}}
       </ul>
     </div>
+</template>
+
+<template name="tourpoint">
+  <li class="list-group-item">
+    <div class="btn-group">
+      <button type="button" class="btn btn-xs btn-default move-tourpoint-up"><span class="glyphicon glyphicon-chevron-up"></span></button>
+      <button type="button" class="btn btn-xs btn-default move-tourpoint-down"><span class="glyphicon glyphicon-chevron-down"></span></button>
+      <button type="button" class="btn btn-xs btn-default remove-tourpoint"><span class="glyphicon glyphicon-remove"></span></button>
+    </div> {{this.name}} <br> {{this.address}}
+  </li>
+</template>
+
+<template name="route">
+  <li class="list-group-item">
+    <button type="button" class="btn btn-xs btn-default"><span class="glyphicon glyphicon-search"></span></button> BY: {{this.transport}}
+  </li>
 </template>

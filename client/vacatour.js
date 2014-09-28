@@ -1,43 +1,46 @@
 Points = new Mongo.Collection(null);
 Routes = new Mongo.Collection(null);
 
+updatePointsAndRoutes = function(tour) {
+  //TODO removing all performant enough and no flicker...
+
+  Points.remove({
+    tourId: tour._id
+  });
+
+  Routes.remove({
+    tourId: tour._id
+  });
+
+  _.each(tour.points, function(point) {
+    Points.insert(point);
+  });
+
+  _.each(tour.routes, function(route) {
+    Routes.insert(route);
+  });
+};
+
 Template.tour.rendered = function() {
+  updatePointsAndRoutes(this.data);
+
   //TODO necessary to prevent from rerendering?
   this.map = new TourMap(this.data);
 };
 
 Template.tour.helpers({
-  pointsAndRoutes: function() {
-    var self = this;
-
-    //TODO removing all performant enough and no flicker...
-    Points.remove({
-      tourId: self._id
-    });
-
-    Routes.remove({
-      tourId: self._id
-    });
-
-    _.each(self.points, function(point) {
-      Points.insert(point);
-    });
-
-    _.each(self.routes, function(route) {
-      Routes.insert(route);
-    });
-
+  tourPoints: function() {
     return Points.find({
-      tourId: self._id
+      tourId: this._id
     }, {
       sort: {
         number: 1
       }
     });
   },
-  route: function() {
+  routeTo: function() {
     return Routes.findOne({
-      from: this._id
+      to: this._id
     });
   }
 });
@@ -54,16 +57,15 @@ Template.tour.events({
       }
     });
 
+    //TODO update other routes
 
-    //TODO remove route + update other routes
-
-    // Tours.update(tour._id, {
-    //   '$pull': {
-    //     'routes': {
-    //       _id:
-    //     }
-    //   }
-    // });
+    Tours.update(tour._id, {
+      '$pull': {
+        'routes': {
+          _id: this.routeFromHere
+        }
+      }
+    });
   },
   'click .move-tourpoint-up': function() {
     var tour = Template.parentData();
