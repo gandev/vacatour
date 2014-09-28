@@ -25,11 +25,15 @@ TourMap = function(tour) {
     self.renderTour(tour);
   });
 
-  Tours.find(tour._id).observe({
+  var tourObserve = Tours.find(tour._id).observe({
     changed: function(newTour) {
       updatePointsAndRoutes(newTour);
-
       self.renderTour(newTour); //TODO don't render the whole tour on any change
+    },
+    removed: function() {
+      Routes.remove({});
+      Points.remove({});
+      tourObserve.stop();
     }
   });
 
@@ -139,6 +143,10 @@ TourMap.prototype.renderTour = function(tour) {
     }
   });
 
+  _.each(self.connections, function(connection) {
+    connection.setMap(null);
+  });
+
   _.each(self.tour.points, function(point) {
     var place = self.places[point.placeId];
 
@@ -159,10 +167,6 @@ TourMap.prototype.renderRoute = function(pointFrom) {
   var route = Routes.findOne(pointFrom.routeFromHere);
 
   if (!route) return;
-
-  if (self.connections[route._id]) {
-    self.connections[route._id].setMap(null);
-  }
 
   var pointTo = Points.findOne(route.to);
 
@@ -207,12 +211,20 @@ TourMap.prototype.createTourpoint = function(place) {
     transport: 'CAR'
   };
 
-  Tours.update(tourId, {
-    '$push': {
-      points: newPoint,
-      routes: newRoute
-    }
-  });
+  if (previousPoint) {
+    Tours.update(tourId, {
+      '$push': {
+        points: newPoint,
+        routes: newRoute
+      }
+    });
+  } else {
+    Tours.update(tourId, {
+      '$push': {
+        points: newPoint
+      }
+    });
+  }
 
   if (previousPoint) {
     //TODO use a tour startpoint of sorts if no previousPoint

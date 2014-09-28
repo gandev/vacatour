@@ -49,33 +49,41 @@ Template.tour.events({
   'click .remove-tourpoint': function() {
     var tour = Template.parentData();
 
-    Tours.update(tour._id, {
-      '$pull': {
-        'points': {
-          _id: this._id
-        }
-      }
+    var previousPoint = Points.findOne({
+      tourId: tour._id,
+      number: this.number - 1
     });
 
-    //TODO update other routes
-
-    Tours.update(tour._id, {
-      '$pull': {
-        'routes': {
-          _id: this.routeFromHere
-        }
-      }
+    var nextPoint = Points.findOne({
+      tourId: tour._id,
+      number: this.number + 1
     });
+
+    Meteor.call('vacatour/removeTourpoint', this, previousPoint && previousPoint.routeFromHere, nextPoint && nextPoint._id);
   },
   'click .move-tourpoint-up': function() {
     var tour = Template.parentData();
 
+    var previousPoint = Points.findOne({
+      tourId: tour._id,
+      number: this.number - 1
+    });
 
+    if (previousPoint) {
+      Meteor.call('vacatour/switchTourpoints', this, previousPoint);
+    }
   },
   'click .move-tourpoint-down': function() {
     var tour = Template.parentData();
 
+    var nextPoint = Points.findOne({
+      tourId: tour._id,
+      number: this.number + 1
+    });
 
+    if (nextPoint) {
+      Meteor.call('vacatour/switchTourpoints', this, nextPoint);
+    }
   }
 });
 
