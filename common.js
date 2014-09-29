@@ -1,57 +1,51 @@
 Meteor.methods({
-  'vacatour/removeTourpoint': function(point, routeFrom, routeTo) {
+  'vacatour/removeTourpoint': function(point) {
     check(point, Object);
     check(routeFrom, Match.OneOf(Object, undefined, null));
     check(routeTo, Match.OneOf(Object, undefined, null));
 
     var tourId = point.tourId;
-    var tour = Tours.findOne(tourId); //needs to be fetched before pull of points
 
-    if (!tour) return;
-
-    Tours.update(tourId, {
-      '$pull': {
-        'points': {
-          _id: point._id
-        }
-      }
+    var routeFrom = Routes.findOne({
+      tourId: tourId,
+      to: point && point._id
     });
 
+    var routeTo = Routes.findOne({
+      tourId: tourId,
+      from: point && point._id
+    });
+
+    Points.remove(point._id);
+
     if (routeTo || routeFrom) {
-      Tours.update(tourId, {
-        '$pull': {
-          'routes': {
-            _id: routeTo && routeTo._id || routeFrom._id
-          }
-        }
-      });
+      Routes.remove(routeTo && routeTo._id || routeFrom._id);
     }
 
     if (routeTo) {
-      for (var nr = point.number + 1; nr < tour.points.length; nr++) {
-        Tours.update({
-          _id: tourId,
-          'points.number': nr
-        }, {
-          '$inc': {
-            'points.$.number': -1
-          }
-        });
-      }
+      Points.update({
+        tourId: tourId,
+        number: {
+          '$gt': point.number
+        }
+      }, {
+        '$inc': {
+          number: -1
+        }
+      }, {
+        multi: true
+      });
 
       if (routeFrom) {
-        Tours.update({
-          _id: tourId,
-          'routes._id': routeFrom._id
-        }, {
+        Routes.update(routeFrom._id, {
           '$set': {
-            'routes.$.to': routeTo.to
+            to: routeTo.to
           }
         });
       }
     }
   },
-  'vacatour/switchTourpoints': function(pointOne, pointTwo, toOne, fromOne, toTwo, fromTwo) {
+  'vacatour/switchTourpoints': function(pointOne, pointTwo) {
     check(pointOne, Object);
     check(pointTwo, Object);
     check(toOne, Match.OneOf(Object, null, undefined));
@@ -64,64 +58,66 @@ Meteor.methods({
 
     if (!tour) return;
 
-    Tours.update({
-      _id: tourId,
-      'points._id': pointOne._id
-    }, {
+    var toOne = Routes.findOne({
+      tourId: tourId,
+      to: pointOne && pointOne._id
+    });
+
+    var fromOne = Routes.findOne({
+      tourId: tourId,
+      from: pointOne && pointOne._id
+    });
+
+    var toTwo = Routes.findOne({
+      tourId: tourId,
+      to: pointTwo && pointTwo._id
+    });
+
+    var fromTwo = Routes.findOne({
+      tourId: tourId,
+      from: pointTwo && pointTwo._id
+    });
+
+    Points.update(pointOne._id, {
       '$set': {
-        'points.$.number': pointTwo.number
+        number: pointTwo.number
       }
     });
 
-    Tours.update({
-      _id: tourId,
-      'points._id': pointTwo._id
-    }, {
+    Points.update(pointTwo._id, {
       '$set': {
-        'points.$.number': pointOne.number
+        number: pointOne.number
       }
     });
 
     if (toOne) {
-      Tours.update({
-        _id: tourId,
-        'routes._id': toOne._id
-      }, {
+      Routes.update(toOne._id, {
         '$set': {
-          'routes.$.to': pointTwo._id
+          to: pointTwo._id
         }
       });
     }
 
     if (fromOne) {
-      Tours.update({
-        _id: tourId,
-        'routes._id': fromOne._id
-      }, {
+      Routes.update(fromOne._id, {
         '$set': {
-          'routes.$.from': pointTwo._id
+          from: pointTwo._id
         }
       });
     }
 
     if (toTwo) {
-      Tours.update({
-        _id: tourId,
-        'routes._id': toTwo._id
-      }, {
+      Routes.update(toTwo._id, {
         '$set': {
-          'routes.$.to': pointOne._id
+          to: pointOne._id
         }
       });
     }
 
     if (fromTwo) {
-      Tours.update({
-        _id: tourId,
-        'routes._id': fromTwo._id
-      }, {
+      Routes.update(fromTwo._id, {
         '$set': {
-          'routes.$.from': pointOne._id
+          from: pointOne._id
         }
       });
     }

@@ -1,8 +1,9 @@
 TourMap = function(tour) {
   var self = this;
 
-  self.places = {};
-  self.connections = {};
+  self.tour = tour;
+  self.markers = {};
+  self.lines = {};
   self.latMin = 90;
   self.latMax = -90;
   self.lngMin = 180;
@@ -19,21 +20,47 @@ TourMap = function(tour) {
 
   self.map = map;
 
-  self.requestPlaces(_.map(tour.points, function(point) {
-    return point.placeId;
-  }), function() {
-    self.renderTour(tour);
+  self.map.setCenter(new google.maps.LatLng(0, 0));
+
+  Points.find({
+    tourId: tour._id
+  }).observe({
+    added: function(point) {
+      self.renderPoint(point);
+
+      self.adjustBounds();
+    },
+    changed: function(newPoint) {
+      self.renderPoint(newPoint);
+
+      self.adjustBounds();
+    },
+    removed: function(point) {
+      self.removePoint(point);
+
+      self.adjustBounds();
+    }
   });
 
-  var tourObserve = Tours.find(tour._id).observe({
-    changed: function(newTour) {
-      updatePointsAndRoutes(newTour);
-      self.renderTour(newTour); //TODO don't render the whole tour on any change
-    },
-    removed: function() {
-      Routes.remove({});
-      Points.remove({});
-      tourObserve.stop();
+  Routes.find({
+    tourId: tour._id
+  }).observe({
+    added: function(route) {
+      //TODO good pattern?
+      Tracker.autorun(function() {
+        var updatedRoute = Routes.findOne(route._id);
+
+        if (updatedRoute) {
+          var pointFrom = Points.findOne(updatedRoute.from);
+          var pointTo = Points.findOne(updatedRoute.to);
+
+          if (pointFrom && pointTo) {
+            self.renderRoute(updatedRoute, pointFrom, pointTo);
+          }
+        } else {
+          self.removeRoute(route);
+        }
+      });
     }
   });
 
@@ -47,10 +74,8 @@ TourMap = function(tour) {
   // listen for place selected and marker on first one
   google.maps.event.addListener(searchBox, 'places_changed', function() {
     var place = searchBox.getPlaces()[0]; //TODO more than one needed?
-    self.places[place.place_id] = place;
 
     self.createTourpoint(place);
-
     searchInput.value = "";
   });
 
@@ -61,55 +86,38 @@ TourMap = function(tour) {
   });
 };
 
-TourMap.prototype.requestPlaces = function(placeIds, callback) {
+TourMap.prototype.requestPlace = function(placeId, callback) {
   var self = this;
-
-  placeIds = placeIds || [];
-
-  if (placeIds.length === 0) {
-    callback();
-  }
 
   var service = new google.maps.places.PlacesService(self.map);
 
-  var countRequests = placeIds.length;
-
-  _.each(placeIds || [], function(placeId) {
-    service.getDetails({
-      placeId: placeId
-    }, function(place, status) {
-      if (status == google.maps.places.PlacesServiceStatus.OK) {
-        self.places[place.place_id] = place;
-      }
-
-      countRequests--;
-      if (countRequests === 0) {
-        callback();
-      }
-    });
+  service.getDetails({
+    placeId: placeId
+  }, function(place, status) {
+    if (status == google.maps.places.PlacesServiceStatus.OK) {
+      callback(place);
+    }
   });
 };
 
 TourMap.prototype.adjustBounds = function() {
   var self = this;
 
-  _.each(self.places, function(place) {
-    var latLng = place.geometry.location;
-
-    if (latLng.lat() < self.latMin) {
-      self.latMin = latLng.lat();
+  _.each(Points.find().fetch(), function(point) {
+    if (point.lat < self.latMin) {
+      self.latMin = point.lat;
     }
 
-    if (latLng.lat() > self.latMax) {
-      self.latMax = latLng.lat();
+    if (point.lat > self.latMax) {
+      self.latMax = point.lat;
     }
 
-    if (latLng.lng() < self.lngMin) {
-      self.lngMin = latLng.lng();
+    if (point.lng < self.lngMin) {
+      self.lngMin = point.lng;
     }
 
-    if (latLng.lng() > self.lngMax) {
-      self.lngMax = latLng.lng();
+    if (point.lng > self.lngMax) {
+      self.lngMax = point.lng;
     }
   });
 
@@ -120,71 +128,52 @@ TourMap.prototype.adjustBounds = function() {
   ));
 };
 
-TourMap.prototype.addPlaceMarker = function(place) {
+TourMap.prototype.removePoint = function(point) {
   var self = this;
 
-  place.marker = new google.maps.Marker({
-    map: self.map,
-    title: place.name,
-    position: place.geometry.location
-  });
+  var marker = self.markers[point.placeId];
 
-  self.adjustBounds();
-};
-
-TourMap.prototype.renderTour = function(tour) {
-  var self = this;
-
-  self.tour = tour;
-
-  _.each(self.places, function(place) {
-    if (place.marker) {
-      place.marker.setMap(null);
-    }
-  });
-
-  _.each(self.connections, function(connection) {
-    connection.setMap(null);
-  });
-
-  _.each(self.tour.points, function(point) {
-    var place = self.places[point.placeId];
-
-    if (place) {
-      self.addPlaceMarker(place);
-      self.renderRoute(point);
-    }
-  });
-
-  if (tour.points.length === 0) {
-    self.map.setCenter(new google.maps.LatLng(0, 0));
+  if (marker) {
+    marker.setMap(null);
   }
 };
 
-TourMap.prototype.renderRoute = function(pointFrom) {
+TourMap.prototype.renderPoint = function(point) {
   var self = this;
 
-  var route = Routes.findOne({
-    tourId: self.tour._id,
-    from: pointFrom._id
+  self.removePoint(point);
+
+  var latLng = new google.maps.LatLng(point.lat, point.lng);
+
+  self.markers[point.placeId] = new google.maps.Marker({
+    map: self.map,
+    title: point.name,
+    position: latLng
   });
+};
 
-  if (!route) return;
+TourMap.prototype.removeRoute = function(route) {
+  var self = this;
 
-  var pointTo = Points.findOne(route.to);
+  var line = self.lines[route._id];
 
-  var placeFrom = pointFrom && self.places[pointFrom.placeId];
-  var placeTo = pointTo && self.places[pointTo.placeId];
+  if (line) {
+    line.setMap(null);
+  }
+};
 
-  if (placeFrom && placeTo) {
-    if (self.connections[route._id]) {
-      //necessary because sometimes line wasn't cleared
-      self.connections[route._id].setMap(null);
-    }
+TourMap.prototype.renderRoute = function(route, pointFrom, pointTo) {
+  var self = this;
 
-    self.connections[route._id] = new google.maps.Polyline({
+  if (pointFrom && pointTo) {
+    var fromLatLng = new google.maps.LatLng(pointFrom.lat, pointFrom.lng);
+    var toLatLng = new google.maps.LatLng(pointTo.lat, pointTo.lng);
+
+    self.removeRoute(route);
+
+    self.lines[route._id] = new google.maps.Polyline({
       map: self.map,
-      path: new google.maps.MVCArray([placeFrom.geometry.location, placeTo.geometry.location])
+      path: new google.maps.MVCArray([fromLatLng, toLatLng])
     });
   }
 };
@@ -192,25 +181,29 @@ TourMap.prototype.renderRoute = function(pointFrom) {
 TourMap.prototype.createTourpoint = function(place) {
   var self = this;
 
-  if (!place) {
-    return;
-  }
-
   var tourId = self.tour._id;
+
+  var pointsCount = Points.find({
+    tourId: tourId
+  }).count();
 
   var previousPoint = Points.findOne({
     tourId: tourId,
-    number: self.tour.points.length - 1
+    number: pointsCount - 1
   });
 
   var newPoint = {
     _id: Random.id(),
     tourId: tourId,
-    number: self.tour.points.length,
+    number: pointsCount,
     placeId: place.place_id,
     name: place.name,
-    address: place.formatted_address
+    address: place.formatted_address,
+    lat: place.geometry.location.lat(),
+    lng: place.geometry.location.lng()
   };
+
+  Points.insert(newPoint);
 
   if (previousPoint) {
     var newRoute = {
@@ -221,17 +214,6 @@ TourMap.prototype.createTourpoint = function(place) {
       transport: 'CAR'
     };
 
-    Tours.update(tourId, {
-      '$push': {
-        points: newPoint,
-        routes: newRoute
-      }
-    });
-  } else {
-    Tours.update(tourId, {
-      '$push': {
-        points: newPoint
-      }
-    });
+    Routes.insert(newRoute);
   }
 };
